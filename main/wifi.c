@@ -109,6 +109,7 @@ esp_err_t wifi_start(void)
     ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_AP, &ap), TAG, "ap cfg");
     if (s_sta_wanted) ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &sta), TAG, "sta cfg");
     ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "start");
+    ESP_RETURN_ON_ERROR(esp_wifi_set_max_tx_power(WIFI_TX_POWER_QDBM), TAG, "tx power");
 
     ESP_LOGI(TAG, "access point \"%s\" (open), http://" WIFI_AP_IP "/", s_ap_ssid);
     if (s_sta_wanted) ESP_LOGI(TAG, "joining \"%s\"", sta.sta.ssid);

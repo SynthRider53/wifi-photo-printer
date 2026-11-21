@@ -16,6 +16,9 @@
 // protocol (factory default 1111) and we accept any value.
 #define WIFI_AP_SSID_PREFIX "INSTAX-"
 #define WIFI_AP_CHANNEL     1
+// Transmit power in 0.25 dBm steps: 34 = 8.5 dBm. At the default 20 dBm the
+// SuperMini runs hot and its Wi-Fi turns flaky; a few metres need far less.
+#define WIFI_TX_POWER_QDBM  34
 #define WIFI_AP_IP          "192.168.0.251"     // where instax clients look for the printer
 // The pool may hold at most CONFIG_LWIP_DHCPS_MAX_STATION_NUM addresses (8),
 // or the driver quietly throws it away and picks its own.
