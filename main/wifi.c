@@ -17,6 +17,7 @@
 
 static const char *TAG = "wifi";
 
+static esp_netif_t *s_ap_netif;
 static esp_netif_t *s_sta_netif;
 static char s_ap_ssid[24];
 static char s_sta_ip[16];
@@ -62,7 +63,7 @@ esp_err_t wifi_start(void)
     ESP_RETURN_ON_ERROR(err, TAG, "nvs");
     ESP_RETURN_ON_ERROR(esp_netif_init(), TAG, "netif");
     ESP_RETURN_ON_ERROR(esp_event_loop_create_default(), TAG, "event loop");
-    esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
+    esp_netif_t *ap_netif = s_ap_netif = esp_netif_create_default_wifi_ap();
     s_sta_netif = esp_netif_create_default_wifi_sta();
 
     // instax clients look for the printer at a fixed address, so the access
@@ -71,6 +72,7 @@ esp_err_t wifi_start(void)
     esp_netif_str_to_ip4(WIFI_AP_IP, &ap_ip.ip);
     esp_netif_str_to_ip4(WIFI_AP_IP, &ap_ip.gw);
     esp_netif_str_to_ip4("255.255.255.0", &ap_ip.netmask);
+    esp_log_level_set("dhcps", ESP_LOG_VERBOSE);    // while the handing out of addresses is in doubt
     dhcps_lease_t lease = { .enable = true };       // the pool uses lwIP's own address type
     lease.start_ip.addr = ipaddr_addr(WIFI_AP_DHCP_FIRST);
     lease.end_ip.addr = ipaddr_addr(WIFI_AP_DHCP_LAST);
@@ -159,4 +161,44 @@ void wifi_describe(char *out, size_t len)
 const char *wifi_ap_ssid(void)
 {
     return s_ap_ssid;
+}
+
+void wifi_ap_state(char *out, size_t len)
+{
+    wifi_mode_t mode = WIFI_MODE_NULL;
+    wifi_config_t cfg = { 0 };
+    wifi_sta_list_t clients = { 0 };
+    uint8_t primary = 0;
+    wifi_second_chan_t second = 0;
+    int8_t power = 0;
+
+    esp_err_t err = esp_wifi_get_mode(&mode);
+    esp_wifi_get_config(WIFI_IF_AP, &cfg);
+    esp_wifi_get_channel(&primary, &second);
+    esp_wifi_ap_get_sta_list(&clients);
+    esp_wifi_get_max_tx_power(&power);
+    esp_netif_dhcp_status_t dhcp = 0;
+    esp_err_t derr = esp_netif_dhcps_get_status(s_ap_netif, &dhcp);
+    esp_netif_ip_info_t info = { 0 };
+    esp_netif_get_ip_info(s_ap_netif, &info);
+
+    snprintf(out, len, "mode %d (%s), ssid \"%s\" len %u, channel %u (radio %u), hidden %u, auth %d, "
+             "clients %d, tx power %.1f dBm%s; netif " IPSTR "/" IPSTR ", dhcp server %s (%s)",
+             mode, mode == WIFI_MODE_AP ? "AP" : mode == WIFI_MODE_APSTA ? "AP+STA" : "not an AP",
+             (char *)cfg.ap.ssid, cfg.ap.ssid_len, cfg.ap.channel, primary, cfg.ap.ssid_hidden,
+             cfg.ap.authmode, clients.num, power / 4.0, err == ESP_OK ? "" : " (driver error)",
+             IP2STR(&info.ip), IP2STR(&info.netmask),
+             dhcp == ESP_NETIF_DHCP_STARTED ? "running" : dhcp == ESP_NETIF_DHCP_STOPPED ? "STOPPED" : "init",
+             esp_err_to_name(derr));
+}
+
+esp_err_t wifi_set_ap_channel(int channel)
+{
+    ESP_RETURN_ON_FALSE(channel >= 1 && channel <= 13, ESP_ERR_INVALID_ARG, TAG, "channel 1..13");
+    wifi_config_t cfg;
+    ESP_RETURN_ON_ERROR(esp_wifi_get_config(WIFI_IF_AP, &cfg), TAG, "get ap cfg");
+    cfg.ap.channel = channel;
+    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_AP, &cfg), TAG, "set ap cfg");
+    ESP_LOGI(TAG, "access point moved to channel %d", channel);
+    return ESP_OK;
 }

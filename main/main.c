@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 #include "instax.h"
 #include "pictbridge.h"
+#include "portal.h"
 #include "printer.h"
 #include "shell.h"
 #include "testpattern.h"
@@ -45,6 +46,7 @@ void app_main(void)
     ESP_ERROR_CHECK(webui_start());
     ESP_ERROR_CHECK(pictbridge_start());
     ESP_ERROR_CHECK(instax_start());
+    ESP_ERROR_CHECK(portal_start());
     ESP_ERROR_CHECK(shell_start());
     ESP_LOGI(TAG, "ready: join \"%s\" (no password) and open http://" WIFI_AP_IP "/; "
              "BOOT button or 'test' prints the calibration strip", wifi_ap_ssid());

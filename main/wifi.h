@@ -12,6 +12,12 @@ esp_err_t wifi_start(void);
 // Name of the access point, built from the MAC address at startup.
 const char *wifi_ap_ssid(void);
 
+// What the Wi-Fi driver reports right now: mode, channel, clients.
+void wifi_ap_state(char *out, size_t len);
+
+// Moves the access point to another channel (1..13) without a restart.
+esp_err_t wifi_set_ap_channel(int channel);
+
 // Stores the network and reconnects; ssid == NULL or "" forgets it.
 esp_err_t wifi_set_station(const char *ssid, const char *pass);
 

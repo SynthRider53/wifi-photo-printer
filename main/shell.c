@@ -70,6 +70,18 @@ static int cmd_raw(int argc, char **argv)
     return printer_raw(buf, n) == ESP_OK ? 0 : 1;
 }
 
+static int cmd_ap(int argc, char **argv)
+{
+    if (argc > 1 && wifi_set_ap_channel(atoi(argv[1])) != ESP_OK) {
+        printf("ap [1..13]\n");
+        return 1;
+    }
+    char line[220];
+    wifi_ap_state(line, sizeof line);
+    printf("%s\n", line);
+    return 0;
+}
+
 static int cmd_band(int argc, char **argv)
 {
     if (argc > 1) printer_set_band(atoi(argv[1]));
@@ -249,6 +261,7 @@ esp_err_t shell_start(void)
         { .command = "baud",   .help = "show/set printer UART baud rate",    .func = cmd_baud },
         { .command = "speed",  .help = "show/set max lines per second",      .func = cmd_speed },
         { .command = "tail",   .help = "show/set paper feed after a picture, dots", .func = cmd_tail },
+        { .command = "ap",     .help = "show access point state / `ap <channel>`", .func = cmd_ap },
         { .command = "band",   .help = "show/set rows per raster command",   .func = cmd_band },
         { .command = "raw",    .help = "send raw bytes to the printer, e.g. `raw 1b 40`", .func = cmd_raw },
         { .command = "fnver",  .help = "show/set the instax \"function version\" answer", .func = cmd_fnver },

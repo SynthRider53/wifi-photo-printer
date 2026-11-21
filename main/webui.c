@@ -9,6 +9,7 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "pictbridge.h"
+#include "portal.h"
 #include "printer.h"
 #include "printjob.h"
 
@@ -56,6 +57,7 @@ static esp_err_t send_json(httpd_req_t *req, const char *status, const char *jso
 static esp_err_t get_index(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");   // a new firmware must show its own page
     return httpd_resp_sendstr(req, index_html_start);
 }
 
@@ -138,5 +140,6 @@ esp_err_t webui_start(void)
     for (size_t i = 0; i < sizeof uris / sizeof uris[0]; i++) {
         ESP_RETURN_ON_ERROR(httpd_register_uri_handler(srv, &uris[i]), TAG, "register");
     }
-    return pictbridge_http_register(srv);
+    ESP_RETURN_ON_ERROR(pictbridge_http_register(srv), TAG, "pictbridge");
+    return portal_http_register(srv);     // must win the 404 handler, so it goes last
 }

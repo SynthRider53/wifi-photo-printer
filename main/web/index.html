@@ -486,8 +486,15 @@ $('pdffile').addEventListener('change', e => {
   loadPdf(e.target.files[0]).catch(err => { $('pdfText').textContent = 'Не удалось открыть PDF: ' + err.message; });
 });
 $('page').addEventListener('input', () => { showOutputs(); showPdfPage(); });
-$('src').addEventListener('change', () => { if ($('src').value === 'pdf') showPdfPage(); });
-for (const id of ids) $(id).addEventListener('input', scheduleRender);
+$('src').addEventListener('change', () => {
+  showMode($('src').value);
+  if ($('src').value === 'pdf') showPdfPage();
+});
+// Both events: some mobile browsers only fire "change" on a <select>.
+for (const id of ids) {
+  $(id).addEventListener('input', scheduleRender);
+  $(id).addEventListener('change', scheduleRender);
+}
 $('reset').addEventListener('click', e => {
   e.preventDefault();
   writeSettings({ ...DEFAULTS, src: $('src').value, text: $('text').value });

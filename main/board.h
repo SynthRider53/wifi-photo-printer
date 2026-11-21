@@ -17,8 +17,10 @@
 #define WIFI_AP_SSID_PREFIX "INSTAX-"
 #define WIFI_AP_CHANNEL     1
 #define WIFI_AP_IP          "192.168.0.251"     // where instax clients look for the printer
+// The pool may hold at most CONFIG_LWIP_DHCPS_MAX_STATION_NUM addresses (8),
+// or the driver quietly throws it away and picks its own.
 #define WIFI_AP_DHCP_FIRST  "192.168.0.100"
-#define WIFI_AP_DHCP_LAST   "192.168.0.120"
+#define WIFI_AP_DHCP_LAST   "192.168.0.107"
 
 // Tallest picture accepted over HTTP (rows of 48 bytes): 2000 rows = 96 KB, 250 mm.
 #define JOB_MAX_ROWS        2000
