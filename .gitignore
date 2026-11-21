@@ -1,0 +1,7 @@
+# ESP-IDF build output and local configuration
+/build/
+/sdkconfig
+/sdkconfig.old
+
+# Third-party sources cloned only for reading while reverse-engineering
+/research/

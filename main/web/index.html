@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Фотопринтер</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f4f4f2; --fg:#1b1b1b; --card:#fff; --line:#d6d6d2; --acc:#1f6feb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161616; --fg:#eee; --card:#222; --line:#3a3a3a; --acc:#4c8dff; } }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }   /* beats .pick's display:block */
+  body { margin:0; padding:12px; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui,sans-serif; }
+  main { max-width:520px; margin:0 auto; display:grid; gap:12px; }
+  h1 { font-size:20px; margin:4px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .pick { display:block; text-align:center; padding:14px; border:2px dashed var(--line); border-radius:10px; cursor:pointer; }
+  .pick input { display:none; }
+  .preview { text-align:center; }
+  canvas { width:384px; max-width:100%; background:#fff; border:1px solid var(--line); image-rendering:pixelated; }
+  .row { display:grid; grid-template-columns:110px 1fr 44px; align-items:center; gap:8px; margin:6px 0; }
+  .row.two { grid-template-columns:110px 1fr; }
+  .row output { text-align:right; font-variant-numeric:tabular-nums; }
+  input[type=range], select, input[type=number] { width:100%; }
+  select, input[type=number] { padding:6px; font:inherit; }
+  textarea { width:100%; padding:8px; font:inherit; background:var(--bg); color:var(--fg);
+             border:1px solid var(--line); border-radius:8px; resize:vertical; }
+  button { width:100%; padding:14px; font:inherit; font-weight:600; border:0; border-radius:10px; background:var(--acc); color:#fff; }
+  button:disabled { opacity:.45; }
+  .muted { color:#888; font-size:14px; }
+  .bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin-top:8px; }
+  .bar div { height:100%; width:0; background:var(--acc); transition:width .3s; }
+  #msg { min-height:1.4em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Фотопринтер</h1>
+
+  <div class="card">
+    <div class="row two"><label for="src">Что печатать</label>
+      <select id="src">
+        <option value="photo">Фото</option>
+        <option value="text">Текст</option>
+        <option value="pdf">PDF</option>
+      </select></div>
+  </div>
+
+  <label class="pick" id="pickCard">
+    <input type="file" id="file" accept="image/*">
+    <span id="pickText">Выбрать фото или снять</span>
+  </label>
+
+  <label class="pick" id="pdfCard" hidden>
+    <input type="file" id="pdffile" accept="application/pdf,.pdf">
+    <span id="pdfText">Выбрать PDF</span>
+  </label>
+
+  <div class="card" id="pageCard" hidden>
+    <div class="row"><label for="page">Страница</label><input type="range" id="page" min="1" max="1" step="1"><output></output></div>
+  </div>
+
+  <div class="card" id="textCard" hidden>
+    <textarea id="text" rows="6" placeholder="Текст для печати"></textarea>
+    <div class="row"><label for="tsize">Размер</label><input type="range" id="tsize" min="14" max="64" step="1"><output></output></div>
+    <div class="row two"><label for="tfont">Шрифт</label>
+      <select id="tfont">
+        <option value="system-ui,sans-serif">Обычный</option>
+        <option value="Georgia,serif">С засечками</option>
+        <option value="ui-monospace,monospace">Моноширинный</option>
+      </select></div>
+    <div class="row two"><label for="talign">Выравнивание</label>
+      <select id="talign">
+        <option value="left">По левому краю</option>
+        <option value="center">По центру</option>
+        <option value="right">По правому краю</option>
+      </select></div>
+    <div class="row two"><label for="tbold">Жирный</label><input type="checkbox" id="tbold"></div>
+  </div>
+
+  <div class="card preview" id="previewCard" hidden>
+    <canvas id="prev" width="384" height="1"></canvas>
+    <div class="muted" id="info"></div>
+  </div>
+
+  <div class="card" id="controls" hidden>
+    <div class="row two"><label for="rot">Поворот</label>
+      <select id="rot">
+        <option value="auto">Авто (альбомные — на всю ширину)</option>
+        <option value="0">Не поворачивать</option>
+        <option value="90">Повернуть на 90°</option>
+      </select></div>
+    <div class="row two"><label for="mode">Растр</label>
+      <select id="mode">
+        <option value="fs">Флойд–Стейнберг (детали)</option>
+        <option value="atk">Аткинсон (контраст)</option>
+        <option value="bayer">Байер (ровная сетка)</option>
+        <option value="thr">Порог (штрих)</option>
+      </select></div>
+    <div class="row two"><label for="auto">Автоуровни</label><input type="checkbox" id="auto"></div>
+    <div class="row"><label for="bri">Яркость</label><input type="range" id="bri" min="-100" max="100" step="1"><output></output></div>
+    <div class="row"><label for="con">Контраст</label><input type="range" id="con" min="-100" max="100" step="1"><output></output></div>
+    <div class="row"><label for="gam">Гамма</label><input type="range" id="gam" min="0.5" max="2.5" step="0.05"><output></output></div>
+    <div class="row"><label for="shp">Резкость</label><input type="range" id="shp" min="0" max="200" step="5"><output></output></div>
+    <div class="row two"><label for="inv">Негатив</label><input type="checkbox" id="inv"></div>
+    <div class="muted"><a href="#" id="reset">Сбросить настройки</a></div>
+  </div>
+
+  <div class="card" id="printCard" hidden>
+    <div class="row two"><label for="copies">Копий</label><input type="number" id="copies" min="1" max="20" value="1"></div>
+    <button id="print">Печатать</button>
+    <div class="bar"><div id="progress"></div></div>
+    <div id="msg" class="muted"></div>
+  </div>
+</main>
+
+<script>
+'use strict';
+const W = 384;                 // dots across the paper
+const RB = W >> 3;             // bytes per row
+let maxRows = 2000, baud = 9600;
+let src = null;                // ImageBitmap or HTMLImageElement
+let bits = null, rows = 0;
+let polling = null;
+
+const $ = id => document.getElementById(id);
+const DEFAULTS = { src:'photo', rot:'auto', mode:'fs', auto:true, bri:0, con:0, gam:1, shp:60, inv:false, copies:1,
+                   text:'', tsize:28, tfont:'system-ui,sans-serif', talign:'left', tbold:false };
+const ids = Object.keys(DEFAULTS);
+
+function readSettings() {
+  const s = {};
+  for (const id of ids) {
+    const el = $(id);
+    s[id] = el.type === 'checkbox' ? el.checked : (el.type === 'range' || el.type === 'number') ? +el.value : el.value;
+  }
+  return s;
+}
+
+function writeSettings(s) {
+  for (const id of ids) {
+    const el = $(id);
+    if (el.type === 'checkbox') el.checked = !!s[id]; else el.value = s[id];
+  }
+  showOutputs();
+}
+
+function showOutputs() {
+  for (const el of document.querySelectorAll('.row output')) {
+    const v = +el.previousElementSibling.value;
+    el.textContent = el.previousElementSibling.id === 'gam' ? v.toFixed(2) : v;
+  }
+}
+
+// ---- image pipeline -------------------------------------------------------
+
+function dims(img) { return [img.naturalWidth || img.width, img.naturalHeight || img.height]; }
+
+// Scale to W dots wide (optionally turning the picture 90 deg clockwise first).
+// Halves step by step so a 24 MP photo never needs a full-size canvas.
+function fitToPaper(img, rot) {
+  const [sw, sh] = dims(img);
+  const dw = rot ? sh : sw, dh = rot ? sw : sh;        // size after the turn
+  const tw = W, th = Math.max(1, Math.min(maxRows, Math.round(dh * W / dw)));
+  const stw = rot ? th : tw, sth = rot ? tw : th;      // target in the source orientation
+  let cur = img, cw = sw, ch = sh;
+  while (cw >= 2 * stw && ch >= 2 * sth) {
+    const nw = Math.ceil(cw / 2), nh = Math.ceil(ch / 2);
+    const c = document.createElement('canvas');
+    c.width = nw; c.height = nh;
+    const g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(cur, 0, 0, nw, nh);
+    cur = c; cw = nw; ch = nh;
+  }
+  const out = document.createElement('canvas');
+  out.width = tw; out.height = th;
+  const g = out.getContext('2d', { willReadFrequently: true });
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, tw, th);
+  g.imageSmoothingQuality = 'high';
+  if (rot) { g.translate(tw, 0); g.rotate(Math.PI / 2); }
+  g.drawImage(cur, 0, 0, stw, sth);
+  return out;
+}
+
+function toGray(canvas) {
+  const w = canvas.width, h = canvas.height;
+  const d = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+  const gray = new Float32Array(w * h);
+  for (let i = 0, j = 0; i < gray.length; i++, j += 4) gray[i] = 0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2];
+  return gray;
+}
+
+function unsharp(gray, w, h, amount) {
+  if (!amount) return;
+  const a = amount / 100, src = gray.slice();
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = Math.min(h - 1, Math.max(0, y + dy));
+        for (let dx = -1; dx <= 1; dx++) sum += src[yy * w + Math.min(w - 1, Math.max(0, x + dx))];
+      }
+      const i = y * w + x;
+      gray[i] = src[i] + a * (src[i] - sum / 9);
+    }
+  }
+}
+
+function autoLevels(gray) {
+  const hist = new Uint32Array(256);
+  for (const v of gray) hist[Math.max(0, Math.min(255, v | 0))]++;
+  const cut = gray.length * 0.01;
+  let lo = 0, hi = 255, acc = 0;
+  for (; lo < 255; lo++) { acc += hist[lo]; if (acc > cut) break; }
+  acc = 0;
+  for (; hi > 0; hi--) { acc += hist[hi]; if (acc > cut) break; }
+  if (hi - lo < 16) return;
+  const k = 255 / (hi - lo);
+  for (let i = 0; i < gray.length; i++) gray[i] = (gray[i] - lo) * k;
+}
+
+function tone(gray, s) {
+  const f = s.con >= 0 ? 1 + s.con / 50 : 1 + s.con / 125;
+  const add = s.bri * 1.28, inv = 1 / s.gam;
+  // 256-entry table: one pow() per level, not per pixel.
+  const lut = new Float32Array(256);
+  for (let v = 0; v < 256; v++) {
+    let x = (v - 128) * f + 128 + add;
+    x = Math.max(0, Math.min(255, x));
+    x = 255 * Math.pow(x / 255, inv);
+    lut[v] = s.inv ? 255 - x : x;
+  }
+  for (let i = 0; i < gray.length; i++) gray[i] = lut[Math.max(0, Math.min(255, Math.round(gray[i])))];
+}
+
+const FS = [[1, 0, 7 / 16], [-1, 1, 3 / 16], [0, 1, 5 / 16], [1, 1, 1 / 16]];
+const ATK = [[1, 0, 1 / 8], [2, 0, 1 / 8], [-1, 1, 1 / 8], [0, 1, 1 / 8], [1, 1, 1 / 8], [0, 2, 1 / 8]];
+
+function bayerMatrix() {
+  let m = [[0]];
+  for (let n = 1; n < 8; n *= 2) {
+    const s = m.length, next = [];
+    for (let y = 0; y < s * 2; y++) {
+      next.push([]);
+      for (let x = 0; x < s * 2; x++) {
+        const q = (y < s ? 0 : 2) + (x < s ? 0 : 1);
+        next[y].push(m[y % s][x % s] * 4 + [0, 2, 3, 1][q]);
+      }
+    }
+    m = next;
+  }
+  return m;
+}
+const BAYER = bayerMatrix();
+
+// 1 = black, MSB first, W/8 bytes per row (what the firmware sends to the printer).
+function dither(gray, w, h, mode) {
+  const out = new Uint8Array(h * RB);
+  const black = (x, y) => { out[y * RB + (x >> 3)] |= 0x80 >> (x & 7); };
+  if (mode === 'thr') {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (gray[y * w + x] < 128) black(x, y);
+  } else if (mode === 'bayer') {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (gray[y * w + x] < BAYER[y & 7][x & 7] * 4 + 2) black(x, y);
+    }
+  } else {
+    const kernel = mode === 'atk' ? ATK : FS;
+    for (let y = 0; y < h; y++) {
+      const dir = y & 1 ? -1 : 1;       // serpentine: no "worms" on smooth ramps
+      for (let i = 0; i < w; i++) {
+        const x = dir > 0 ? i : w - 1 - i, idx = y * w + x;
+        const v = gray[idx], q = v < 128 ? 0 : 255, err = v - q;
+        if (q === 0) black(x, y);
+        for (const [dx, dy, k] of kernel) {
+          const xx = x + dx * dir, yy = y + dy;
+          if (xx >= 0 && xx < w && yy < h) gray[yy * w + xx] += err * k;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function showBits(out, w, h) {
+  const c = $('prev');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const img = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const v = out[y * RB + (x >> 3)] & (0x80 >> (x & 7)) ? 0 : 255;
+    const o = (y * w + x) * 4;
+    img.data[o] = img.data[o + 1] = img.data[o + 2] = v;
+    img.data[o + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+// Text is drawn by the browser, so any language and font works; the firmware
+// only ever sees the finished dots.
+function drawText(s) {
+  const pad = 8, maxW = W - 2 * pad;
+  const font = (s.tbold ? 'bold ' : '') + s.tsize + 'px ' + s.tfont;
+  const m = document.createElement('canvas').getContext('2d');
+  m.font = font;
+
+  const lines = [];
+  for (const para of String(s.text).split('\n')) {
+    let line = '';
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      const t = line ? line + ' ' + word : word;
+      if (!line || m.measureText(t).width <= maxW) line = t;
+      else { lines.push(line); line = word; }
+    }
+    lines.push(line);
+  }
+
+  const lh = Math.round(s.tsize * 1.35);
+  const h = Math.max(1, Math.min(maxRows, lines.length * lh + 2 * pad));
+  const c = document.createElement('canvas');
+  c.width = W; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, h);
+  g.fillStyle = '#000'; g.font = font; g.textBaseline = 'top'; g.textAlign = s.talign;
+  const x = s.talign === 'center' ? W / 2 : s.talign === 'right' ? W - pad : pad;
+  lines.forEach((l, i) => g.fillText(l, x, pad + i * lh));
+  return c;
+}
+
+function showMode(mode) {
+  $('pickCard').hidden = mode !== 'photo';
+  $('textCard').hidden = mode !== 'text';
+  $('pdfCard').hidden = mode !== 'pdf';
+  $('pageCard').hidden = mode !== 'pdf' || pdfDoc === null;
+  $('controls').hidden = mode === 'text' || !src;
+  const ready = mode === 'text' || src;
+  $('previewCard').hidden = !ready;
+  $('printCard').hidden = !ready;
+}
+
+// ---- PDF ------------------------------------------------------------------
+
+let pdfDoc = null, pdfjs = null;
+
+async function loadPdf(file) {
+  $('pdfText').textContent = 'Загрузка просмотрщика…';
+  if (!pdfjs) {
+    pdfjs = await import('/pdf.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+  }
+  const data = new Uint8Array(await file.arrayBuffer());
+  pdfDoc = await pdfjs.getDocument({ data }).promise;
+  $('page').max = pdfDoc.numPages;
+  $('page').value = 1;
+  $('pdfText').textContent = `${file.name} — ${pdfDoc.numPages} стр., выбрать другой`;
+  await showPdfPage();
+}
+
+// Renders the page at paper width; from there it is an ordinary picture.
+async function showPdfPage() {
+  if (!pdfDoc) return;
+  const page = await pdfDoc.getPage(Math.max(1, Math.min(pdfDoc.numPages, +$('page').value || 1)));
+  const unit = page.getViewport({ scale: 1 });
+  const viewport = page.getViewport({ scale: W / unit.width });
+  const c = document.createElement('canvas');
+  c.width = Math.round(viewport.width);
+  c.height = Math.round(viewport.height);
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: g, viewport }).promise;
+  src = c;
+  render();
+}
+
+function render() {
+  const s0 = readSettings();
+  showMode(s0.src);
+  if (s0.src === 'text') {
+    const canvas = drawText(s0);
+    const gray = toGray(canvas);
+    rows = canvas.height;
+    bits = dither(gray, W, rows, 'thr');      // a threshold keeps letters crisp
+    showBits(bits, W, rows);
+    $('info').textContent = `${W}×${rows} точек, около 48×${(rows / 8.9).toFixed(0)} мм`;
+    localStorage.setItem('pp-settings', JSON.stringify(s0));
+    return;
+  }
+  if (!src) return;
+  const s = s0;
+  const [sw, sh] = dims(src);
+  const rot = s.rot === 'auto' ? sw > sh : s.rot === '90';
+  const canvas = fitToPaper(src, rot);
+  const gray = toGray(canvas);
+  unsharp(gray, canvas.width, canvas.height, s.shp);
+  if (s.auto) autoLevels(gray);
+  tone(gray, s);
+  rows = canvas.height;
+  bits = dither(gray, canvas.width, rows, s.mode);
+  showBits(bits, canvas.width, rows);
+  const mm = rows / 8.9, sec = Math.round(rows * RB * 10 / baud);
+  $('info').textContent = `${W}×${rows} точек, около ${(W / 8).toFixed(0)}×${mm.toFixed(0)} мм, печать ~${sec} с`;
+  localStorage.setItem('pp-settings', JSON.stringify(s));
+}
+
+let queued = false;
+function scheduleRender() {
+  if (queued) return;
+  queued = true;
+  requestAnimationFrame(() => { queued = false; showOutputs(); render(); });
+}
+
+async function loadFile(file) {
+  let img;
+  try {
+    img = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch (e) {
+    img = new Image();
+    img.src = URL.createObjectURL(file);
+    await img.decode();
+  }
+  src = img;
+  $('pickText').textContent = file.name + ' — выбрать другое';
+  render();
+}
+
+// ---- printing ---------------------------------------------------------------
+
+function msg(t) { $('msg').textContent = t; }
+
+async function readStatus() {
+  const r = await fetch('/status', { cache: 'no-store' });
+  const st = await r.json();
+  maxRows = st.maxrows; baud = st.baud;
+  return st;
+}
+
+function showProgress(st) {
+  const total = st.total * st.copies || 1, done = (st.copy - 1) * st.total + st.done;
+  $('progress').style.width = (st.busy ? Math.min(100, done * 100 / total) : 0) + '%';
+  if (st.busy) msg(`Печатается${st.copies > 1 ? ` (копия ${st.copy} из ${st.copies})` : ''}…`);
+}
+
+function startPolling() {
+  if (polling) return;
+  polling = setInterval(async () => {
+    try {
+      const st = await readStatus();
+      showProgress(st);
+      if (!st.busy) {
+        clearInterval(polling); polling = null;
+        $('print').disabled = false;
+        $('progress').style.width = '0';
+        msg('Готово. Бумага выдвинута — можно отрывать.');
+      }
+    } catch (e) { msg('Нет связи с принтером…'); }
+  }, 700);
+}
+
+async function doPrint() {
+  if (!bits) return;
+  $('print').disabled = true;
+  msg('Отправка…');
+  try {
+    const copies = Math.max(1, Math.min(20, +$('copies').value || 1));
+    const r = await fetch(`/print?h=${rows}&copies=${copies}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: bits,
+    });
+    if (r.status === 503) { msg('Принтер занят, подождите.'); startPolling(); return; }
+    if (!r.ok) throw new Error(r.status);
+    startPolling();
+  } catch (e) {
+    msg('Ошибка отправки: ' + e.message);
+    $('print').disabled = false;
+  }
+}
+
+// ---- wiring ---------------------------------------------------------------
+
+try { writeSettings({ ...DEFAULTS, ...JSON.parse(localStorage.getItem('pp-settings') || '{}') }); }
+catch (e) { writeSettings(DEFAULTS); }
+
+$('file').addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+$('pdffile').addEventListener('change', e => {
+  if (!e.target.files[0]) return;
+  loadPdf(e.target.files[0]).catch(err => { $('pdfText').textContent = 'Не удалось открыть PDF: ' + err.message; });
+});
+$('page').addEventListener('input', () => { showOutputs(); showPdfPage(); });
+$('src').addEventListener('change', () => { if ($('src').value === 'pdf') showPdfPage(); });
+for (const id of ids) $(id).addEventListener('input', scheduleRender);
+$('reset').addEventListener('click', e => {
+  e.preventDefault();
+  writeSettings({ ...DEFAULTS, src: $('src').value, text: $('text').value });
+  scheduleRender();
+});
+showMode($('src').value);
+$('print').addEventListener('click', doPrint);
+
+readStatus().then(st => { if (st.busy) { $('printCard').hidden = false; $('print').disabled = true; startPolling(); } })
+  .catch(() => msg('Нет связи с принтером (страница открыта не с платы?)'));
+</script>
+</body>
+</html>

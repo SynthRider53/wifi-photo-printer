@@ -1,0 +1,20 @@
+CONFIG_IDF_TARGET="esp32c3"
+
+# SuperMini has no UART bridge: the console lives on the native USB Serial/JTAG
+# port, which leaves UART0 pins (GPIO20/21) free for the printer.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_FREERTOS_HZ=1000
+
+# The page carries a PDF viewer, so the app partition takes nearly the whole flash.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
+# Photo upload is a single POST of up to ~100 KB.
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_MAX_URI_LEN=256
+
+# Lets pictbridge_start() turn on the HTTP server's debug log while the camera handshake is tuned.
+CONFIG_LOG_MAXIMUM_LEVEL_DEBUG=y
